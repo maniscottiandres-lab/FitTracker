@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gym & Basketball Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased pb-20 md:pb-0">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 p-4">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i data-lucide="activity" class="text-emerald-400 w-6 h-6"></i>
+        <h1 class="font-bold text-lg tracking-wide text-white">FitTracker <span class="text-xs text-emerald-400 font-normal px-2 py-0.5 bg-emerald-950/60 border border-emerald-800/50 rounded-full">Pro</span></h1>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+          <button onclick="changeWeek(-1)" class="hover:text-emerald-400 transition-colors"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+          <span class="font-semibold text-sm w-20 text-center">Sem. <span id="currentWeekDisplay" class="text-emerald-400 font-bold">1</span></span>
+          <button onclick="changeWeek(1)" class="hover:text-emerald-400 transition-colors"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        </div>
+        <button id="btnLogout" onclick="logoutUser()" title="Cerrar Sesión" class="hidden p-2 bg-slate-800 hover:bg-slate-700 text-red-400 rounded-xl border border-slate-700 transition-all">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PANTALLA DE AUTENTICACIÓN / INICIO DE SESIÓN -->
+  <div id="authContainer" class="flex-1 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-md space-y-4 text-center">
+      <div class="flex justify-center mb-2">
+        <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-400">
+          <i data-lucide="user-check" class="w-8 h-8"></i>
+        </div>
+      </div>
+      <h2 class="text-xl font-bold text-white">Inicia Sesión en FitTracker</h2>
+      <p class="text-xs text-slate-400">Guarda tus pesos, comidas y avances en la nube para acceder desde cualquier celular o PC.</p>
+      
+      <div class="space-y-3 pt-2">
+        <input type="email" id="authEmail" placeholder="Tu Correo Electrónico" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-400">
+        <input type="password" id="authPassword" placeholder="Contraseña" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-400">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="loginEmail()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition-all">
+            Ingresar
+          </button>
+          <button onclick="registerEmail()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-xl text-xs transition-all">
+            Crear Cuenta
+          </button>
+        </div>
+      </div>
+
+      <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="bg-slate-900 px-2 text-slate-500">O ingresa con</span></div>
+      </div>
+
+      <button onclick="loginGoogle()" class="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition-all">
+        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 10.8 0 12s.7 2.3 1.9 4.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
+        Continuar con Google
+      </button>
+    </div>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL DE LA APLICACIÓN -->
+  <main id="appMain" class="hidden flex-1 max-w-4xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- SECCIÓN 1: RESUMEN GENERAL -->
+    <section id="sec-general" class="tab-content space-y-6">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Peso Actual</span>
+          <div class="flex items-baseline gap-2">
+            <input type="number" id="inputCurrentWeight" value="67.5" step="0.1" onchange="updateWeightData()" class="bg-transparent text-2xl font-bold text-white w-24 focus:outline-none focus:border-b border-emerald-400">
+            <span class="text-sm text-slate-400">kg</span>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Dif. Inicio (67.5 kg)</span>
+          <div id="weightDiffDisplay" class="text-2xl font-bold text-emerald-400 flex items-center gap-1">0.0 kg</div>
+        </div>
+        <div class="col-span-2 md:col-span-1 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+          <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Hábitos de Hoy</span>
+          <div class="text-sm font-medium text-slate-300 mt-1" id="daysCompletedText">0 de 3 metas del día listos</div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="check-circle-2" class="text-emerald-400 w-5 h-5"></i> Objetivos del Día
+        </h2>
+        <div class="grid gap-3">
+          <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
+            <div class="flex items-center gap-3">
+              <i data-lucide="dumbbell" class="text-indigo-400 w-5 h-5"></i>
+              <span class="font-medium">Sesión de Gimnasio</span>
+            </div>
+            <input type="checkbox" id="chkGym" onchange="toggleDailyHabit('gym')" class="w-5 h-5 accent-emerald-500 rounded">
+          </label>
+          <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
+            <div class="flex items-center gap-3">
+              <i data-lucide="dribbble" class="text-orange-400 w-5 h-5"></i>
+              <span class="font-medium">Entrenamiento de Básquet</span>
+            </div>
+            <input type="checkbox" id="chkBasketball" onchange="toggleDailyHabit('basketball')" class="w-5 h-5 accent-emerald-500 rounded">
+          </label>
+          <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
+            <div class="flex items-center gap-3">
+              <i data-lucide="moon" class="text-blue-400 w-5 h-5"></i>
+              <span class="font-medium">Sueño Cumplido (8 - 10 Horas)</span>
+            </div>
+            <input type="checkbox" id="chkSleep" onchange="toggleDailyHabit('sleep')" class="w-5 h-5 accent-emerald-500 rounded">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 2: GIMNASIO -->
+    <section id="sec-gym" class="tab-content hidden space-y-6">
+      <div class="flex justify-between items-center bg-slate-900 p-2 rounded-2xl border border-slate-800">
+        <div class="flex gap-2">
+          <button onclick="selectGymDay(1)" id="btnDay1" class="px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-emerald-500 text-slate-950">Día 1</button>
+          <button onclick="selectGymDay(2)" id="btnDay2" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:text-white transition-all">Día 2</button>
+          <button onclick="selectGymDay(3)" id="btnDay3" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:text-white transition-all">Día 3</button>
+        </div>
+        <button onclick="openAddExerciseModal()" class="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 px-3 py-2 rounded-xl border border-slate-700 font-medium transition-all">
+          <i data-lucide="plus" class="w-4 h-4"></i> Agregar Ejercicio
+        </button>
+      </div>
+      <div id="exerciseList" class="space-y-4"></div>
+    </section>
+
+    <!-- SECCIÓN 3: COMIDAS -->
+    <section id="sec-meals" class="tab-content hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
+          <i data-lucide="target" class="text-emerald-400 w-5 h-5"></i> Metas Diarias (Nutricionista)
+        </h2>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Calorías (kcal)</label>
+            <input type="number" id="targetCalories" value="2800" onchange="saveNutritionTargets()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-emerald-400">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Proteínas (g)</label>
+            <input type="number" id="targetProtein" value="160" onchange="saveNutritionTargets()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-emerald-400">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Carbohidratos (g)</label>
+            <input type="number" id="targetCarbs" value="320" onchange="saveNutritionTargets()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white font-semibold focus:outline-none focus:border-emerald-400">
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+        <div class="flex justify-between items-center">
+          <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="utensils" class="text-emerald-400 w-5 h-5"></i> Menú Ajustado a tus Metas
+          </h2>
+          <button onclick="rotateMenuVariant()" class="text-xs text-emerald-400 bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1 transition-all">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Variar Menú
+          </button>
+        </div>
+        <div class="grid gap-2 text-sm" id="suggestedMealsList"></div>
+      </div>
+    </section>
+
+    <!-- SECCIÓN 4: PROGRESO -->
+    <section id="sec-progress" class="tab-content hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
+          <i data-lucide="clipboard-list" class="text-emerald-400 w-5 h-5"></i> Ficha de Cierre Semanal
+        </h2>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Peso Promedio (kg)</label>
+            <input type="number" id="weeklyWeight" step="0.1" value="67.5" onchange="saveUserData()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Salto Vertical (cm)</label>
+            <input type="number" id="weeklyJump" onchange="saveUserData()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Sueño Diario Prom. (hs)</label>
+            <input type="number" id="weeklySleep" step="0.5" value="8" onchange="saveUserData()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Molestias / Dolores</label>
+            <input type="text" id="weeklyPains" placeholder="Ej: Leve molestia rodilla" onchange="saveUserData()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white">
+          </div>
+        </div>
+        <button onclick="generateAIRecommendations()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-lg shadow-indigo-950/50">
+          <i data-lucide="bot" class="w-4 h-4"></i> Generar Informe General & Recomendaciones IA
+        </button>
+      </div>
+
+      <div id="reportContainer" class="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/30 border border-indigo-800/40 rounded-2xl p-5 space-y-4">
+        <h3 class="text-md font-bold text-indigo-300 flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5"></i> Análisis Integrado de IA
+        </h3>
+        <p id="aiRecommendationsOutput" class="text-sm text-slate-300 leading-relaxed italic">
+          Haz clic en "Generar Informe General" para procesar tus datos...
+        </p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="exportToPDF()" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 px-4 rounded-xl border border-slate-700 flex items-center justify-center gap-2 text-xs transition-all">
+          <i data-lucide="file-down" class="w-4 h-4 text-red-400"></i> Descargar PDF
+        </button>
+        <button onclick="shareToWhatsApp()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs transition-all">
+          <i data-lucide="message-square" class="w-4 h-4"></i> Enviar por WhatsApp
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- NAVEGACIÓN INFERIOR -->
+  <nav id="appNav" class="hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 px-4 py-2 z-50">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+      <button onclick="switchTab('sec-general')" class="nav-btn text-emerald-400 flex flex-col items-center gap-1" id="nav-sec-general">
+        <i data-lucide="home" class="w-5 h-5"></i><span class="text-[10px] font-medium">Inicio</span>
+      </button>
+      <button onclick="switchTab('sec-gym')" class="nav-btn text-slate-400 flex flex-col items-center gap-1" id="nav-sec-gym">
+        <i data-lucide="dumbbell" class="w-5 h-5"></i><span class="text-[10px] font-medium">Gimnasio</span>
+      </button>
+      <button onclick="switchTab('sec-meals')" class="nav-btn text-slate-400 flex flex-col items-center gap-1" id="nav-sec-meals">
+        <i data-lucide="utensils" class="w-5 h-5"></i><span class="text-[10px] font-medium">Comidas</span>
+      </button>
+      <button onclick="switchTab('sec-progress')" class="nav-btn text-slate-400 flex flex-col items-center gap-1" id="nav-sec-progress">
+        <i data-lucide="line-chart" class="w-5 h-5"></i><span class="text-[10px] font-medium">Progreso</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- SDK DE FIREBASE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCasUsngSoos8WzLa8ImQ7Wr8sFFFGhBI",
+      authDomain: "fittracker-e5d1f.firebaseapp.com",
+      projectId: "fittracker-e5d1f",
+      storageBucket: "fittracker-e5d1f.firebasestorage.app",
+      messagingSenderId: "276889575551",
+      appId: "1:276889575551:web:04b2e18cddd98ceb3d234a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+
+    const defaultState = {
+      currentWeek: 1, currentGymDay: 1, initialWeight: 67.5, currentWeight: 67.5, menuVariant: 0,
+      targets: { cals: 2800, prot: 160, carbs: 320 },
+      consumed: { cals: 0, prot: 0, carbs: 0 },
+      dailyHabits: { gym: false, basketball: false, sleep: false },
+      exercises: {
+        1: [{ id: 1, name: "Sentadilla Trasera", series: 4, weight: 80, done: false, userReps: 10, userWeight: 80, tip: "Ideal para potencia de salto." }],
+        2: [{ id: 3, name: "Peso Muerto Rumano", series: 3, weight: 70, done: false, userReps: 12, userWeight: 70, tip: "Enfócate en la bisagra de cadera." }],
+        3: [{ id: 4, name: "Dominadas", series: 4, weight: 0, done: false, userReps: 8, userWeight: 0, tip: "Tracción completa para espalda." }]
+      }
+    };
+
+    window.state = defaultState;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        document.getElementById('authContainer').classList.add('hidden');
+        document.getElementById('appMain').classList.remove('hidden');
+        document.getElementById('appNav').classList.remove('hidden');
+        document.getElementById('btnLogout').classList.remove('hidden');
+        await loadUserData();
+      } else {
+        currentUser = null;
+        document.getElementById('authContainer').classList.remove('hidden');
+        document.getElementById('appMain').classList.add('hidden');
+        document.getElementById('appNav').classList.add('hidden');
+        document.getElementById('btnLogout').classList.add('hidden');
+      }
+      lucide.createIcons();
+    });
+
+    window.loginEmail = () => {
+      const e = document.getElementById('authEmail').value;
+      const p = document.getElementById('authPassword').value;
+      signInWithEmailAndPassword(auth, e, p).catch(err => alert(err.message));
+    };
+
+    window.registerEmail = () => {
+      const e = document.getElementById('authEmail').value;
+      const p = document.getElementById('authPassword').value;
+      createUserWithEmailAndPassword(auth, e, p).then(() => saveUserData()).catch(err => alert(err.message));
+    };
+
+    window.loginGoogle = () => {
+      signInWithPopup(auth, new GoogleAuthProvider()).catch(err => alert(err.message));
+    };
+
+    window.logoutUser = () => signOut(auth);
+
+    window.saveUserData = async () => {
+      if (!currentUser) return;
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), window.state);
+      } catch (err) {
+        console.error("Error guardando datos:", err);
+      }
+    };
+
+    async function loadUserData() {
+      if (!currentUser) return;
+      const docRef = doc(db, "users", currentUser.uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        window.state = docSnap.data();
+      } else {
+        await saveUserData();
+      }
+      updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('inputCurrentWeight').value = window.state.currentWeight;
+      document.getElementById('targetCalories').value = window.state.targets.cals;
+      document.getElementById('targetProtein').value = window.state.targets.prot;
+      document.getElementById('targetCarbs').value = window.state.targets.carbs;
+      document.getElementById('currentWeekDisplay').innerText = window.state.currentWeek;
+
+      document.getElementById('chkGym').checked = window.state.dailyHabits.gym;
+      document.getElementById('chkBasketball').checked = window.state.dailyHabits.basketball;
+      document.getElementById('chkSleep').checked = window.state.dailyHabits.sleep;
+
+      updateWeightData();
+      renderGymExercises();
+      renderSuggestedMeals();
+      updateHabitsText();
+    }
+
+    window.switchTab = (tabId) => {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId).classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-emerald-400');
+        btn.classList.add('text-slate-400');
+      });
+      document.getElementById(`nav-${tabId}`).classList.remove('text-slate-400');
+      document.getElementById(`nav-${tabId}`).classList.add('text-emerald-400');
+    };
+
+    window.changeWeek = (delta) => {
+      window.state.currentWeek = Math.max(1, window.state.currentWeek + delta);
+      document.getElementById('currentWeekDisplay').innerText = window.state.currentWeek;
+      window.saveUserData();
+    };
+
+    window.updateWeightData = () => {
+      const val = parseFloat(document.getElementById('inputCurrentWeight').value) || 67.5;
+      window.state.currentWeight = val;
+      const diff = (val - window.state.initialWeight).toFixed(1);
+      const diffElem = document.getElementById('weightDiffDisplay');
+      diffElem.innerText = `${diff > 0 ? '+' : ''}${diff} kg`;
+      diffElem.className = `text-2xl font-bold flex items-center gap-1 ${diff <= 0 ? 'text-emerald-400' : 'text-amber-400'}`;
+      window.saveUserData();
+    };
+
+    window.toggleDailyHabit = (key) => {
+      window.state.dailyHabits[key] = !window.state.dailyHabits[key];
+      updateHabitsText();
+      window.saveUserData();
+    };
+
+    function updateHabitsText() {
+      const count = Object.values(window.state.dailyHabits).filter(Boolean).length;
+      document.getElementById('daysCompletedText').innerText = `${count} de 3 metas del día listos`;
+    }
+
+    window.selectGymDay = (day) => {
+      window.state.currentGymDay = day;
+      [1, 2, 3].forEach(d => {
+        document.getElementById(`btnDay${d}`).className = d === day 
+          ? "px-4 py-2 rounded-xl text-sm font-semibold transition-all bg-emerald-500 text-slate-950"
+          : "px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:text-white transition-all";
+      });
+      renderGymExercises();
+      window.saveUserData();
+    };
+
+    function renderGymExercises() {
+      const list = document.getElementById('exerciseList');
+      list.innerHTML = '';
+      const dayExercises = window.state.exercises[window.state.currentGymDay] || [];
+
+      if(dayExercises.length === 0) {
+        list.innerHTML = `<p class="text-sm text-slate-500 italic text-center py-6">No hay ejercicios para el Día ${window.state.currentGymDay}.</p>`;
+        return;
+      }
+
+      dayExercises.forEach((ex, idx) => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3";
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-3">
+              <input type="checkbox" ${ex.done ? 'checked' : ''} onchange="toggleExerciseDone(${idx})" class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
+              <div>
+                <h3 class="font-bold text-slate-100 ${ex.done ? 'line-through text-slate-500' : ''}">${ex.name}</h3>
+                <span class="text-xs text-emerald-400">Objetivo: ${ex.series} series x ${ex.weight} kg</span>
+              </div>
+            </div>
+            <div class="flex gap-2 text-slate-400">
+              <button onclick="deleteExercise(${idx})" class="hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+          </div>
+          <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+            <span>${ex.tip}</span>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    window.toggleExerciseDone = (idx) => {
+      window.state.exercises[window.state.currentGymDay][idx].done = !window.state.exercises[window.state.currentGymDay][idx].done;
+      renderGymExercises();
+      window.saveUserData();
+    };
+
+    window.deleteExercise = (idx) => {
+      if (confirm("¿Eliminar este ejercicio?")) {
+        window.state.exercises[window.state.currentGymDay].splice(idx, 1);
+        renderGymExercises();
+        window.saveUserData();
+      }
+    };
+
+    window.openAddExerciseModal = () => {
+      const name = prompt("Nombre del Ejercicio:");
+      if (!name) return;
+      const series = prompt("Cantidad de Series:", "4");
+      const weight = prompt("Peso sugerido (kg):", "50");
+
+      if (!window.state.exercises[window.state.currentGymDay]) {
+        window.state.exercises[window.state.currentGymDay] = [];
+      }
+
+      window.state.exercises[window.state.currentGymDay].push({
+        id: Date.now(), name: name, series: parseInt(series) || 3, weight: parseFloat(weight) || 0,
+        done: false, userReps: 10, userWeight: parseFloat(weight) || 0, tip: "Realízalo con buena técnica."
+      });
+      renderGymExercises();
+      window.saveUserData();
+    };
+
+    window.saveNutritionTargets = () => {
+      window.state.targets.cals = parseInt(document.getElementById('targetCalories').value) || 2000;
+      window.state.targets.prot = parseInt(document.getElementById('targetProtein').value) || 150;
+      window.state.targets.carbs = parseInt(document.getElementById('targetCarbs').value) || 250;
+      renderSuggestedMeals();
+      window.saveUserData();
+    };
+
+    window.rotateMenuVariant = () => {
+      window.state.menuVariant = ((window.state.menuVariant || 0) + 1) % 3;
+      renderSuggestedMeals();
+      window.saveUserData();
+    };
+
+    function renderSuggestedMeals() {
+      const c = window.state.targets.cals;
+      const p = window.state.targets.prot;
+      const cb = window.state.targets.carbs;
+
+      const variants = [
+        [
+          { name: "Desayuno", desc: `3 huevos revueltos, ${Math.round(cb * 0.25)}g avena, 1 banana` },
+          { name: "Almuerzo", desc: `${Math.round(p * 1.5)}g pechuga de pollo, ${Math.round(cb * 0.4)}g arroz cocido + ensalada` },
+          { name: "Merienda", desc: `200g yogur griego con frutos secos` },
+          { name: "Cena", desc: `${Math.round(p * 1.2)}g pescado o carne magra con batata` }
+        ],
+        [
+          { name: "Desayuno", desc: `Omelette de claras con espinaca y tostadas integrales` },
+          { name: "Almuerzo", desc: `${Math.round(p * 1.5)}g carne magra con fideos integrales` },
+          { name: "Merienda", desc: `Tostadas integrales con palta y queso cottage` },
+          { name: "Cena", desc: `${Math.round(p * 1.3)}g pechuga a la plancha con quinoa` }
+        ]
+      ];
+
+      const activeMenu = variants[window.state.menuVariant || 0] || variants[0];
+      const container = document.getElementById('suggestedMealsList');
+      container.innerHTML = activeMenu.map(m => `
+        <label class="flex items-start gap-3 p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 cursor-pointer">
+          <input type="checkbox" class="mt-1 w-4 h-4 accent-emerald-500 rounded">
+          <div>
+            <span class="font-semibold text-emerald-400 block">${m.name}</span>
+            <span class="text-xs text-slate-300">${m.desc}</span>
+          </div>
+        </label>
+      `).join('');
+    }
+
+    window.generateAIRecommendations = () => {
+      const sleep = document.getElementById('weeklySleep').value || "8";
+      const pains = document.getElementById('weeklyPains').value || "ninguna";
+      const jump = document.getElementById('weeklyJump').value || "N/A";
+
+      const output = document.getElementById('aiRecommendationsOutput');
+      output.innerHTML = `
+        <strong>🤖 Informe Semanal (Semana ${window.state.currentWeek}):</strong><br><br>
+        • Peso actual registrado: ${window.state.currentWeight} kg.<br>
+        • Salto vertical: ${jump} cm.<br>
+        • Promedio de sueño: ${sleep} hs.<br>
+        • Molestias físicas: ${pains !== "ninguna" ? `⚠️ <em>Atención:</em> ${pains}` : 'Sin molestias.'}`;
+    };
+
+    window.exportToPDF = () => {
+      const element = document.getElementById('reportContainer');
+      html2pdf().set({ margin: 10, filename: `Progreso_Semana_${window.state.currentWeek}.pdf` }).from(element).save();
+    };
+
+    window.shareToWhatsApp = () => {
+      const text = `📊 *Resumen FitTracker - Semana ${window.state.currentWeek}*%0A` +
+                   `• Peso: ${window.state.currentWeight} kg%0A` +
+                   `• Salto: ${document.getElementById('weeklyJump').value || 'N/A'} cm%0A` +
+                   `• Sueño: ${document.getElementById('weeklySleep').value || '8'} hs/día`;
+      window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
+  </script>
+</body>
+</html>
