@@ -103,21 +103,21 @@
         <div class="grid gap-3">
           <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
             <div class="flex items-center gap-3">
-              <i data-lucide="dumbbell" class="text-indigo-400 w-5 h-5"></i>
+              <span class="text-lg">🏋️‍♂️</span>
               <span class="font-medium">Sesión de Gimnasio</span>
             </div>
             <input type="checkbox" id="chkGym" onchange="toggleDailyHabit('gym')" class="w-5 h-5 accent-emerald-500 rounded">
           </label>
           <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
             <div class="flex items-center gap-3">
-              <i data-lucide="dribbble" class="text-orange-400 w-5 h-5"></i>
+              <span class="text-lg">🏀</span>
               <span class="font-medium">Entrenamiento de Básquet</span>
             </div>
             <input type="checkbox" id="chkBasketball" onchange="toggleDailyHabit('basketball')" class="w-5 h-5 accent-emerald-500 rounded">
           </label>
           <label class="flex items-center justify-between p-3.5 bg-slate-800/50 hover:bg-slate-800 rounded-xl cursor-pointer border border-slate-700/50 transition-all">
             <div class="flex items-center gap-3">
-              <i data-lucide="moon" class="text-blue-400 w-5 h-5"></i>
+              <span class="text-lg">🌙</span>
               <span class="font-medium">Sueño Cumplido (8 - 10 Horas)</span>
             </div>
             <input type="checkbox" id="chkSleep" onchange="toggleDailyHabit('sleep')" class="w-5 h-5 accent-emerald-500 rounded">
@@ -228,7 +228,7 @@
     <!-- SECCIÓN 4: PROGRESO -->
     <section id="sec-progress" class="tab-content hidden space-y-6">
       
-      <!-- NUEVA FUNCIONALIDAD: REGISTRO DE FOTOS DEL CAMBIO FÍSICO -->
+      <!-- REGISTRO DE FOTOS DEL CAMBIO FÍSICO -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
         <div class="flex justify-between items-center">
           <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
@@ -351,6 +351,29 @@
 
     window.state = defaultState;
 
+    // Busca la estructura de ejercicios más reciente de semanas previas para usarla como base
+    function getLatestExercisesTemplate(targetWeekNum) {
+      if (!window.state.weeksData) return JSON.parse(JSON.stringify(defaultExercises));
+      
+      const existingWeekKeys = Object.keys(window.state.weeksData)
+        .map(Number)
+        .filter(w => w < targetWeekNum)
+        .sort((a, b) => b - a);
+
+      if (existingWeekKeys.length > 0) {
+        const prevWeekExercises = window.state.weeksData[existingWeekKeys[0]].exercises;
+        if (prevWeekExercises) {
+          const cloned = JSON.parse(JSON.stringify(prevWeekExercises));
+          // Limpiar checks y repeticiones previas para la semana nueva
+          Object.keys(cloned).forEach(day => {
+            cloned[day].forEach(ex => { ex.done = false; });
+          });
+          return cloned;
+        }
+      }
+      return JSON.parse(JSON.stringify(defaultExercises));
+    }
+
     // Obtener o crear los datos aislados de una semana
     function getWeekData(weekNum) {
       if (!window.state.weeksData) window.state.weeksData = {};
@@ -363,10 +386,36 @@
           loggedMeals: [],
           bodyPhotos: [],
           weeklyJump: "", weeklySleep: 8, weeklyPains: "",
-          exercises: JSON.parse(JSON.stringify(defaultExercises))
+          exercises: getLatestExercisesTemplate(weekNum)
         };
       }
       return window.state.weeksData[weekNum];
+    }
+
+    // Propaga cambios en la lista de ejercicios (agregar / eliminar) hacia todas las semanas futuras
+    function propagateExerciseStructureToFutureWeeks(day, newDayExercisesList) {
+      const currentWeekNum = window.state.currentWeek;
+      if (!window.state.weeksData) return;
+
+      Object.keys(window.state.weeksData).forEach(wKey => {
+        const wNum = Number(wKey);
+        if (wNum > currentWeekNum) {
+          const futureWeek = window.state.weeksData[wNum];
+          if (futureWeek && futureWeek.exercises) {
+            // Mapear manteniendo el estado de done/progreso de la semana futura si el ejercicio ya existía
+            const existingFutureList = futureWeek.exercises[day] || [];
+            futureWeek.exercises[day] = newDayExercisesList.map(ex => {
+              const prevMatch = existingFutureList.find(fEx => fEx.id === ex.id || fEx.name === ex.name);
+              return {
+                ...ex,
+                done: prevMatch ? prevMatch.done : false,
+                userReps: prevMatch ? prevMatch.userReps : ex.userReps,
+                userWeight: prevMatch ? prevMatch.userWeight : ex.userWeight
+              };
+            });
+          }
+        }
+      });
     }
 
     onAuthStateChanged(auth, async (user) => {
@@ -429,7 +478,6 @@
       updateUI();
     }
 
-    // Reinicio diario exclusivo para Hábitos e Menú Sugerido
     function checkDailyReset() {
       const today = getTodayString();
       const currentWData = getWeekData(window.state.currentWeek);
@@ -593,9 +641,13 @@
     };
 
     window.deleteExercise = (idx) => {
-      if (confirm("¿Eliminar este ejercicio?")) {
+      if (confirm("¿Eliminar este ejercicio? Se eliminará de esta semana y semanas futuras.")) {
         const wData = getWeekData(window.state.currentWeek);
-        wData.exercises[window.state.currentGymDay].splice(idx, 1);
+        const day = window.state.currentGymDay;
+        
+        wData.exercises[day].splice(idx, 1);
+        propagateExerciseStructureToFutureWeeks(day, wData.exercises[day]);
+        
         renderGymExercises();
         window.saveUserData();
       }
@@ -608,14 +660,26 @@
       const weight = prompt("Peso sugerido (kg):", "50");
 
       const wData = getWeekData(window.state.currentWeek);
-      if (!wData.exercises[window.state.currentGymDay]) {
-        wData.exercises[window.state.currentGymDay] = [];
+      const day = window.state.currentGymDay;
+
+      if (!wData.exercises[day]) {
+        wData.exercises[day] = [];
       }
 
-      wData.exercises[window.state.currentGymDay].push({
-        id: Date.now(), name: name, series: parseInt(series) || 3, weight: parseFloat(weight) || 0,
-        done: false, userReps: 10, userWeight: parseFloat(weight) || 0, tip: "Realízalo con buena técnica."
-      });
+      const newExercise = {
+        id: Date.now(),
+        name: name,
+        series: parseInt(series) || 3,
+        weight: parseFloat(weight) || 0,
+        done: false,
+        userReps: 10,
+        userWeight: parseFloat(weight) || 0,
+        tip: "Realízalo con buena técnica."
+      };
+
+      wData.exercises[day].push(newExercise);
+      propagateExerciseStructureToFutureWeeks(day, wData.exercises[day]);
+
       renderGymExercises();
       window.saveUserData();
     };
