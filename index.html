@@ -87,7 +87,7 @@
           </div>
         </div>
         <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
-          <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Dif. Inicio (67.5 kg)</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wider block mb-1">Dif. Inicio (<span id="initialWeightDisplay">67.5</span> kg)</span>
           <div id="weightDiffDisplay" class="text-2xl font-bold text-emerald-400 flex items-center gap-1">0.0 kg</div>
         </div>
         <div class="col-span-2 md:col-span-1 bg-slate-900 border border-slate-800 p-4 rounded-2xl">
@@ -227,6 +227,24 @@
 
     <!-- SECCIÓN 4: PROGRESO -->
     <section id="sec-progress" class="tab-content hidden space-y-6">
+      
+      <!-- NUEVA FUNCIONALIDAD: REGISTRO DE FOTOS DEL CAMBIO FÍSICO -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
+            <i data-lucide="image" class="text-emerald-400 w-5 h-5"></i> Fotos de Registro Físico (Semana <span class="text-emerald-400" id="bodyPhotoWeekDisplay">1</span>)
+          </h2>
+          <button onclick="document.getElementById('bodyPhotoInput').click()" class="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all">
+            <i data-lucide="plus" class="w-4 h-4"></i> Añadir Foto
+          </button>
+          <input type="file" id="bodyPhotoInput" accept="image/*" class="hidden" onchange="handleBodyPhotoUpload(event)">
+        </div>
+        <p class="text-xs text-slate-400">Sube fotos de frente, espalda o perfil para que la IA y tú puedan evaluar la evolución muscular.</p>
+        
+        <div id="bodyPhotosGrid" class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2"></div>
+      </div>
+
+      <!-- FICHA DE CIERRE SEMANAL -->
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-md font-bold text-slate-200 flex items-center gap-2">
           <i data-lucide="clipboard-list" class="text-emerald-400 w-5 h-5"></i> Ficha de Cierre Semanal
@@ -319,22 +337,37 @@
       return new Date().toISOString().split('T')[0];
     }
 
+    const defaultExercises = {
+      1: [{ id: 1, name: "Sentadilla Trasera", series: 4, weight: 80, done: false, userReps: 10, userWeight: 80, tip: "Ideal para potencia de salto." }],
+      2: [{ id: 3, name: "Peso Muerto Rumano", series: 3, weight: 70, done: false, userReps: 12, userWeight: 70, tip: "Enfócate en la bisagra de cadera." }],
+      3: [{ id: 4, name: "Dominadas", series: 4, weight: 0, done: false, userReps: 8, userWeight: 0, tip: "Tracción completa para espalda." }]
+    };
+
     const defaultState = {
       currentWeek: 1, currentGymDay: 1, initialWeight: 67.5, currentWeight: 67.5, menuVariant: 0,
       targets: { cals: 2800, prot: 160, carbs: 320 },
-      habitsDate: getTodayString(),
-      dailyHabits: { gym: false, basketball: false, sleep: false },
-      menuDate: getTodayString(),
-      checkedMenu: [false, false, false, false],
-      loggedMeals: [],
-      exercises: {
-        1: [{ id: 1, name: "Sentadilla Trasera", series: 4, weight: 80, done: false, userReps: 10, userWeight: 80, tip: "Ideal para potencia de salto." }],
-        2: [{ id: 3, name: "Peso Muerto Rumano", series: 3, weight: 70, done: false, userReps: 12, userWeight: 70, tip: "Enfócate en la bisagra de cadera." }],
-        3: [{ id: 4, name: "Dominadas", series: 4, weight: 0, done: false, userReps: 8, userWeight: 0, tip: "Tracción completa para espalda." }]
-      }
+      weeksData: {}
     };
 
     window.state = defaultState;
+
+    // Obtener o crear los datos aislados de una semana
+    function getWeekData(weekNum) {
+      if (!window.state.weeksData) window.state.weeksData = {};
+      if (!window.state.weeksData[weekNum]) {
+        window.state.weeksData[weekNum] = {
+          habitsDate: getTodayString(),
+          dailyHabits: { gym: false, basketball: false, sleep: false },
+          menuDate: getTodayString(),
+          checkedMenu: [false, false, false, false],
+          loggedMeals: [],
+          bodyPhotos: [],
+          weeklyJump: "", weeklySleep: 8, weeklyPains: "",
+          exercises: JSON.parse(JSON.stringify(defaultExercises))
+        };
+      }
+      return window.state.weeksData[weekNum];
+    }
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -391,40 +424,56 @@
         await saveUserData();
       }
       
-      // Reinicio por fecha (midnight reset) para Menú Sugerido y Hábitos
-      const today = getTodayString();
-      if (window.state.menuDate !== today) {
-        window.state.menuDate = today;
-        window.state.checkedMenu = [false, false, false, false];
-      }
-      if (window.state.habitsDate !== today) {
-        window.state.habitsDate = today;
-        window.state.dailyHabits = { gym: false, basketball: false, sleep: false };
-      }
-
+      checkDailyReset();
       await saveUserData();
       updateUI();
     }
 
+    // Reinicio diario exclusivo para Hábitos e Menú Sugerido
+    function checkDailyReset() {
+      const today = getTodayString();
+      const currentWData = getWeekData(window.state.currentWeek);
+
+      if (currentWData.menuDate !== today) {
+        currentWData.menuDate = today;
+        currentWData.checkedMenu = [false, false, false, false];
+      }
+      if (currentWData.habitsDate !== today) {
+        currentWData.habitsDate = today;
+        currentWData.dailyHabits = { gym: false, basketball: false, sleep: false };
+      }
+    }
+
     function updateUI() {
+      checkDailyReset();
+      const wData = getWeekData(window.state.currentWeek);
+
       document.getElementById('inputCurrentWeight').value = window.state.currentWeight;
+      document.getElementById('initialWeightDisplay').innerText = window.state.initialWeight;
       document.getElementById('targetCalories').value = window.state.targets.cals;
       document.getElementById('targetProtein').value = window.state.targets.prot;
       document.getElementById('targetCarbs').value = window.state.targets.carbs;
       document.getElementById('currentWeekDisplay').innerText = window.state.currentWeek;
+      document.getElementById('bodyPhotoWeekDisplay').innerText = window.state.currentWeek;
+
+      document.getElementById('weeklyWeight').value = window.state.currentWeight;
+      document.getElementById('weeklyJump').value = wData.weeklyJump || "";
+      document.getElementById('weeklySleep').value = wData.weeklySleep || 8;
+      document.getElementById('weeklyPains').value = wData.weeklyPains || "";
 
       const todayDisplay = new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
       const elDate = document.getElementById('currentMealDate');
       if (elDate) elDate.innerText = todayDisplay;
 
-      document.getElementById('chkGym').checked = !!window.state.dailyHabits.gym;
-      document.getElementById('chkBasketball').checked = !!window.state.dailyHabits.basketball;
-      document.getElementById('chkSleep').checked = !!window.state.dailyHabits.sleep;
+      document.getElementById('chkGym').checked = !!wData.dailyHabits.gym;
+      document.getElementById('chkBasketball').checked = !!wData.dailyHabits.basketball;
+      document.getElementById('chkSleep').checked = !!wData.dailyHabits.sleep;
 
       updateWeightData();
       renderGymExercises();
       renderSuggestedMeals();
       renderLoggedMeals();
+      renderBodyPhotos();
       updateHabitsText();
     }
 
@@ -441,7 +490,7 @@
 
     window.changeWeek = (delta) => {
       window.state.currentWeek = Math.max(1, window.state.currentWeek + delta);
-      document.getElementById('currentWeekDisplay').innerText = window.state.currentWeek;
+      updateUI();
       window.saveUserData();
     };
 
@@ -456,13 +505,15 @@
     };
 
     window.toggleDailyHabit = (key) => {
-      window.state.dailyHabits[key] = !window.state.dailyHabits[key];
+      const wData = getWeekData(window.state.currentWeek);
+      wData.dailyHabits[key] = !wData.dailyHabits[key];
       updateHabitsText();
       window.saveUserData();
     };
 
     function updateHabitsText() {
-      const count = Object.values(window.state.dailyHabits).filter(Boolean).length;
+      const wData = getWeekData(window.state.currentWeek);
+      const count = Object.values(wData.dailyHabits).filter(Boolean).length;
       document.getElementById('daysCompletedText').innerText = `${count} de 3 metas del día listos`;
     }
 
@@ -481,7 +532,8 @@
     function renderGymExercises() {
       const list = document.getElementById('exerciseList');
       list.innerHTML = '';
-      const dayExercises = window.state.exercises[window.state.currentGymDay] || [];
+      const wData = getWeekData(window.state.currentWeek);
+      const dayExercises = wData.exercises[window.state.currentGymDay] || [];
 
       if(dayExercises.length === 0) {
         list.innerHTML = `<p class="text-sm text-slate-500 italic text-center py-6">No hay ejercicios para el Día ${window.state.currentGymDay}.</p>`;
@@ -527,7 +579,8 @@
     }
 
     window.toggleExerciseDone = (idx) => {
-      const ex = window.state.exercises[window.state.currentGymDay][idx];
+      const wData = getWeekData(window.state.currentWeek);
+      const ex = wData.exercises[window.state.currentGymDay][idx];
       const weightInput = document.getElementById(`weight-${idx}`);
       const repsInput = document.getElementById(`reps-${idx}`);
 
@@ -541,7 +594,8 @@
 
     window.deleteExercise = (idx) => {
       if (confirm("¿Eliminar este ejercicio?")) {
-        window.state.exercises[window.state.currentGymDay].splice(idx, 1);
+        const wData = getWeekData(window.state.currentWeek);
+        wData.exercises[window.state.currentGymDay].splice(idx, 1);
         renderGymExercises();
         window.saveUserData();
       }
@@ -553,11 +607,12 @@
       const series = prompt("Cantidad de Series:", "4");
       const weight = prompt("Peso sugerido (kg):", "50");
 
-      if (!window.state.exercises[window.state.currentGymDay]) {
-        window.state.exercises[window.state.currentGymDay] = [];
+      const wData = getWeekData(window.state.currentWeek);
+      if (!wData.exercises[window.state.currentGymDay]) {
+        wData.exercises[window.state.currentGymDay] = [];
       }
 
-      window.state.exercises[window.state.currentGymDay].push({
+      wData.exercises[window.state.currentGymDay].push({
         id: Date.now(), name: name, series: parseInt(series) || 3, weight: parseFloat(weight) || 0,
         done: false, userReps: 10, userWeight: parseFloat(weight) || 0, tip: "Realízalo con buena técnica."
       });
@@ -596,15 +651,15 @@
       const mealEntry = {
         id: Date.now(),
         type: type,
-        week: window.state.currentWeek,
         dateISO: getTodayString(),
         dateDisplay: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         details: details || "Sin detalles",
         image: selectedImageBase64 || ""
       };
 
-      if (!window.state.loggedMeals) window.state.loggedMeals = [];
-      window.state.loggedMeals.unshift(mealEntry);
+      const wData = getWeekData(window.state.currentWeek);
+      if (!wData.loggedMeals) wData.loggedMeals = [];
+      wData.loggedMeals.unshift(mealEntry);
 
       await window.saveUserData();
       renderLoggedMeals();
@@ -623,7 +678,8 @@
       container.innerHTML = '';
       
       const todayISO = getTodayString();
-      const todayMeals = (window.state.loggedMeals || []).filter(m => m.dateISO === todayISO);
+      const wData = getWeekData(window.state.currentWeek);
+      const todayMeals = (wData.loggedMeals || []).filter(m => m.dateISO === todayISO);
 
       if (todayMeals.length === 0) {
         container.innerHTML = `<p class="col-span-3 text-xs text-slate-500 italic py-2">No has registrado comidas hoy.</p>`;
@@ -660,8 +716,9 @@
     };
 
     window.toggleMenuItem = (index) => {
-      if (!window.state.checkedMenu) window.state.checkedMenu = [false, false, false, false];
-      window.state.checkedMenu[index] = !window.state.checkedMenu[index];
+      const wData = getWeekData(window.state.currentWeek);
+      if (!wData.checkedMenu) wData.checkedMenu = [false, false, false, false];
+      wData.checkedMenu[index] = !wData.checkedMenu[index];
       window.saveUserData();
     };
 
@@ -685,7 +742,8 @@
       ];
 
       const activeMenu = variants[window.state.menuVariant || 0] || variants[0];
-      const checkedArr = window.state.checkedMenu || [false, false, false, false];
+      const wData = getWeekData(window.state.currentWeek);
+      const checkedArr = wData.checkedMenu || [false, false, false, false];
       const container = document.getElementById('suggestedMealsList');
 
       container.innerHTML = activeMenu.map((m, idx) => `
@@ -699,49 +757,139 @@
       `).join('');
     }
 
-    // PROGRESO E INFORME IA INTEGRADO
-    window.generateAIRecommendations = () => {
-      const sleep = document.getElementById('weeklySleep').value || "8";
-      const pains = document.getElementById('weeklyPains').value || "ninguna";
-      const jump = document.getElementById('weeklyJump').value || "N/A";
+    // FOTOS DE CAMBIO FÍSICO (PROGRESO)
+    window.handleBodyPhotoUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
 
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const photoData = {
+          id: Date.now(),
+          dateISO: getTodayString(),
+          image: evt.target.result
+        };
+        const wData = getWeekData(window.state.currentWeek);
+        if (!wData.bodyPhotos) wData.bodyPhotos = [];
+        wData.bodyPhotos.push(photoData);
+
+        await window.saveUserData();
+        renderBodyPhotos();
+      };
+      reader.readAsDataURL(file);
+    };
+
+    function renderBodyPhotos() {
+      const container = document.getElementById('bodyPhotosGrid');
+      container.innerHTML = '';
+      const wData = getWeekData(window.state.currentWeek);
+      const photos = wData.bodyPhotos || [];
+
+      if (photos.length === 0) {
+        container.innerHTML = `<p class="col-span-2 md:col-span-4 text-xs text-slate-500 italic py-2">No has subido fotos de progreso físico para esta semana.</p>`;
+        return;
+      }
+
+      photos.forEach((p, idx) => {
+        const div = document.createElement('div');
+        div.className = "relative rounded-xl overflow-hidden border border-slate-700 bg-slate-800/50 group";
+        div.innerHTML = `
+          <img src="${p.image}" class="w-full h-32 object-cover">
+          <button onclick="deleteBodyPhoto(${idx})" class="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 text-white p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+          <div class="p-1.5 text-[10px] text-slate-400 text-center">${p.dateISO}</div>
+        `;
+        container.appendChild(div);
+      });
+      lucide.createIcons();
+    }
+
+    window.deleteBodyPhoto = async (idx) => {
+      if (confirm("¿Eliminar esta foto de cambio físico?")) {
+        const wData = getWeekData(window.state.currentWeek);
+        wData.bodyPhotos.splice(idx, 1);
+        await window.saveUserData();
+        renderBodyPhotos();
+      }
+    };
+
+    // PROGRESO E INFORME IA INTEGRADO COMPLETO
+    window.generateAIRecommendations = () => {
+      const currentWeek = window.state.currentWeek;
+      const wData = getWeekData(currentWeek);
+
+      // Guardar entradas actuales de la ficha
+      wData.weeklyJump = document.getElementById('weeklyJump').value;
+      wData.weeklySleep = document.getElementById('weeklySleep').value;
+      wData.weeklyPains = document.getElementById('weeklyPains').value;
+      window.saveUserData();
+
+      const sleep = wData.weeklySleep || "N/R";
+      const pains = wData.weeklyPains || "Ninguna";
+      const jump = wData.weeklyJump || "N/R";
+
+      // 1. Hábitos y Menú Sugerido de la semana
+      const checkedMenuCount = (wData.checkedMenu || []).filter(Boolean).length;
+      const habits = wData.dailyHabits || {};
+      const habitsSummary = `Gimnasio: ${habits.gym ? 'Sí' : 'No'}, Básquet: ${habits.basketball ? 'Sí' : 'No'}, Sueño: ${habits.sleep ? 'Sí' : 'No'}`;
+
+      // 2. Todos los Ejercicios Realizados
       let exercisesSummary = "";
-      Object.keys(window.state.exercises).forEach(day => {
-        window.state.exercises[day].forEach(ex => {
+      let totalExercisesDone = 0;
+      Object.keys(wData.exercises || {}).forEach(day => {
+        (wData.exercises[day] || []).forEach(ex => {
           if (ex.done) {
-            exercisesSummary += `• ${ex.name}: ${ex.userWeight || ex.weight} kg x ${ex.userReps || 10} reps<br>`;
+            totalExercisesDone++;
+            exercisesSummary += `  • [Día ${day}] ${ex.name}: ${ex.userWeight || ex.weight} kg x ${ex.userReps || 10} reps<br>`;
           }
         });
       });
-      if (!exercisesSummary) exercisesSummary = "• Aún no registraste ejercicios completados este ciclo.<br>";
+      if (!exercisesSummary) exercisesSummary = "  • No se registraron ejercicios completados esta semana.<br>";
 
-      const weekMeals = (window.state.loggedMeals || []).filter(m => m.week === window.state.currentWeek);
+      // 3. Comidas e Historial Fotográfico de Nutrición
+      const weekMeals = wData.loggedMeals || [];
       let mealsSummary = "";
       if (weekMeals.length > 0) {
         weekMeals.forEach(m => {
-          mealsSummary += `• ${m.type}: ${m.details}<br>`;
+          const hasPhoto = m.image ? "📷 [Con foto]" : "📝 [Sin foto]";
+          mealsSummary += `  • ${m.dateISO} (${m.type}) - ${hasPhoto}: ${m.details}<br>`;
         });
       } else {
-        mealsSummary = "• No hay fotos/registros de comidas ingresados esta semana.<br>";
+        mealsSummary = "  • Sin registros de fotos o especificaciones de platos esta semana.<br>";
       }
 
+      // 4. Fotos de Cambio Físico acumuladas
+      const photosCount = (wData.bodyPhotos || []).length;
+
+      // Renderizado
       const output = document.getElementById('aiRecommendationsOutput');
       output.innerHTML = `
-        <strong>🤖 Informe Semanal Integrado (Semana ${window.state.currentWeek}):</strong><br><br>
-        <strong>Métricas Principales:</strong><br>
-        • Peso registrado: ${window.state.currentWeight} kg<br>
-        • Salto vertical: ${jump} cm<br>
-        • Promedio de sueño: ${sleep} hs/día<br>
-        • Molestias físicas: ${pains !== "ninguna" ? `⚠️ <em>${pains}</em>` : 'Sin molestias'}<br><br>
+        <strong>🤖 Informe Semanal Consolidado (Semana ${currentWeek}):</strong><br><br>
         
-        <strong>Rendimiento en Gimnasio:</strong><br>
+        <strong>1. Ficha Corporal & Recuperación:</strong><br>
+        • Peso actual: ${window.state.currentWeight} kg (Dif. inicio: ${(window.state.currentWeight - window.state.initialWeight).toFixed(1)} kg)<br>
+        • Salto vertical: ${jump} cm<br>
+        • Promedio de descanso: ${sleep} hs/día<br>
+        • Estado físico / Molestias: ${pains.toLowerCase() !== "ninguna" && pains.trim() !== "" ? `⚠️ <em>${pains}</em>` : 'Sin dolores registrados'}<br>
+        • Registro fotográfico corporal: ${photosCount} foto(s) subida(s) esta semana.<br><br>
+
+        <strong>2. Registro Diario de Hábitos:</strong><br>
+        • Estado de hábitos del día: ${habitsSummary}<br>
+        • Metas del menú sugerido cumplidas: ${checkedMenuCount} de 4<br><br>
+
+        <strong>3. Cargas y Rendimiento en Gimnasio (${totalExercisesDone} completados):</strong><br>
         ${exercisesSummary}<br>
 
-        <strong>Análisis Nutricional Registrado:</strong><br>
+        <strong>4. Historial Nutricional (${weekMeals.length} registros):</strong><br>
         ${mealsSummary}<br>
 
-        <strong>💡 Recomendación del Asistente:</strong><br>
-        ${pains !== "ninguna" ? 'Dado que reportas molestias, mantén la carga actual sin incrementos bruscos hasta recuperarte totalmente.' : 'Buen progreso general. Mantén la consistencia nutricional según tus fotos/especificaciones registradas para respaldar tus ganancias de potencia.'}
+        <strong>💡 Evaluación & Recomendaciones de la IA:</strong><br>
+        ${
+          pains.toLowerCase() !== "ninguna" && pains.trim() !== ""
+            ? `Se reporta la molestia "<em>${pains}</em>". Recomendamos modular la carga en saltos de básquetbol y mantener los pesos de gimnasio sin incrementos agresivos hasta la recuperación.`
+            : 'Gran consistencia general. El volumen de comidas registradas y el trabajo realizado en gimnasio muestran una base óptima para seguir desarrollando fuerza explosiva y salto.'
+        }
       `;
     };
 
