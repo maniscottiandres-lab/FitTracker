@@ -415,34 +415,62 @@ const firebaseConfig = {
       dayExercises.forEach((ex, idx) => {
         const card = document.createElement('div');
         card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3";
-        card.innerHTML = `
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-3">
-              <input type="checkbox" ${ex.done ? 'checked' : ''} onchange="toggleExerciseDone(${idx})" class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
-              <div>
-                <h3 class="font-bold text-slate-100 ${ex.done ? 'line-through text-slate-500' : ''}">${ex.name}</h3>
-                <span class="text-xs text-emerald-400">Objetivo: ${ex.series} series x ${ex.weight} kg</span>
-              </div>
-            </div>
-            <div class="flex gap-2 text-slate-400">
-              <button onclick="deleteExercise(${idx})" class="hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </div>
-          </div>
-          <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
-            <i data-lucide="info" class="w-4 h-4 text-emerald-400 shrink-0"></i>
-            <span>${ex.tip}</span>
-          </div>
-        `;
+card.innerHTML = `
+  <div class="flex items-start justify-between">
+    <div class="flex items-center gap-3">
+      <input type="checkbox" ${ex.done ? 'checked' : ''} onchange="toggleExerciseDone(${idx})" class="w-5 h-5 accent-emerald-500 rounded cursor-pointer">
+      <div>
+        <h3 class="font-bold text-slate-100 ${ex.done ? 'line-through text-slate-500' : ''}">${ex.name}</h3>
+        <span class="text-xs text-emerald-400">Objetivo: ${ex.series} series x${ex.weight} kg</span>
+      </div>
+    </div>
+    <div class="flex gap-2 text-slate-400">
+      <button onclick="deleteExercise(${idx})" class="hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    </div>
+  </div>
+
+  <div class="flex gap-2 my-1">
+    <div class="flex-1">
+      <label class="block text-[10px] text-slate-400">Peso (kg)</label>
+      <input type="number" id="weight-${idx}" placeholder="${ex.weight \vert{}\vert{} 0}" value="${ex.userWeight || ''}" class="w-full bg-slate-950 border border-slate-800 rounded p-1 text-sm font-bold text-white focus:outline-none focus:border-emerald-500">
+    </div>
+    <div class="flex-1">
+      <label class="block text-[10px] text-slate-400">Reps</label>
+      <input type="number" id="reps-${idx}" placeholder="0" value="${ex.reps || ''}" class="w-full bg-slate-950 border border-slate-800 rounded p-1 text-sm font-bold text-white focus:outline-none focus:border-emerald-500">
+    </div>
+  </div>
+
+  <div class="bg-slate-800/40 p-2.5 rounded-xl border border-slate-800 text-xs text-slate-400 flex items-center gap-2">
+    <i data-lucide="info" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+    <span>${ex.tip}</span>
+  </div>
+`;
         list.appendChild(card);
       });
       lucide.createIcons();
     }
 
-    window.toggleExerciseDone = (idx) => {
-      window.state.exercises[window.state.currentGymDay][idx].done = !window.state.exercises[window.state.currentGymDay][idx].done;
-      renderGymExercises();
-      window.saveUserData();
-    };
+window.toggleExerciseDone = (idx) => {
+  const ex = window.state.exercises[window.state.currentGymDay][idx];
+  
+  // Obtenemos los valores de los inputs del formulario
+  const weightInput = document.getElementById(`weight-${idx}`);
+  const repsInput = document.getElementById(`reps-${idx}`);
+  
+  const userWeight = weightInput ? weightInput.value : '';
+  const reps = repsInput ? repsInput.value : '';
+
+  ex.done = !ex.done;
+  if (ex.done) {
+    ex.date = new Date().toISOString();
+    ex.reps = reps;
+    ex.userWeight = parseFloat(userWeight) || 0;
+    ex.tip = `Registrado: ${userWeight || ex.weight} kg x ${reps || 0} reps`;
+  }
+
+  renderGym();
+  window.saveUserData();
+};
 
     window.deleteExercise = (idx) => {
       if (confirm("¿Eliminar este ejercicio?")) {
