@@ -878,7 +878,7 @@
       }
     };
 
-    // PROGRESO E INFORME IA INTEGRADO COMPLETO
+    // PROGRESO E INFORME IA INTEGRADO COMPLETO CON HISTORIAL Y RUTINA
     window.generateAIRecommendations = () => {
       const currentWeek = window.state.currentWeek;
       const wData = getWeekData(currentWeek);
@@ -898,14 +898,36 @@
       const habits = wData.dailyHabits || {};
       const habitsSummary = `Gimnasio: ${habits.gym ? 'Sí' : 'No'}, Básquet: ${habits.basketball ? 'Sí' : 'No'}, Sueño: ${habits.sleep ? 'Sí' : 'No'}`;
 
-      // 2. Todos los Ejercicios Realizados
+      // 2. Ejercicios Realizados esta semana y RASTREO HISTÓRICO DE PESOS
       let exercisesSummary = "";
       let totalExercisesDone = 0;
+      let progressionNotes = [];
+
       Object.keys(wData.exercises || {}).forEach(day => {
         (wData.exercises[day] || []).forEach(ex => {
           if (ex.done) {
             totalExercisesDone++;
-            exercisesSummary += `  • [Día ${day}] ${ex.name}: ${ex.userWeight || ex.weight} kg x ${ex.userReps || 10} reps<br>`;
+            const currentWeight = ex.userWeight || ex.weight;
+            exercisesSummary += `  • [Día ${day}] ${ex.name}: ${currentWeight} kg x ${ex.userReps || 10} reps<br>`;
+
+            // Comparar con la semana anterior si existe
+            if (currentWeek > 1 && window.state.weeksData && window.state.weeksData[currentWeek - 1]) {
+              const prevWeekExercises = window.state.weeksData[currentWeek - 1].exercises || {};
+              const prevDayList = prevWeekExercises[day] || [];
+              const prevEx = prevDayList.find(p => p.id === ex.id || p.name === ex.name);
+
+              if (prevEx && prevEx.done) {
+                const prevWeight = prevEx.userWeight || prevEx.weight;
+                const diff = currentWeight - prevWeight;
+                if (diff > 0) {
+                  progressionNotes.push(`📈 <strong>${ex.name}</strong>: Subiste +${diff} kg respecto a la Sem. ${currentWeek - 1}.`);
+                } else if (diff < 0) {
+                  progressionNotes.push(`📉 <strong>${ex.name}</strong>: Bajaste ${Math.abs(diff)} kg respecto a la Sem. ${currentWeek - 1}.`);
+                } else {
+                  progressionNotes.push(`⚖️ <strong>${ex.name}</strong>: Mantuviste ${currentWeight} kg (mismo peso que Sem. ${currentWeek - 1}).`);
+                }
+              }
+            }
           }
         });
       });
@@ -923,37 +945,47 @@
         mealsSummary = "  • Sin registros de fotos o especificaciones de platos esta semana.<br>";
       }
 
-      // 4. Fotos de Cambio Físico acumuladas
-      const photosCount = (wData.bodyPhotos || []).length;
+      // 4. Lógica de Ajustes de Rutina (Sugerir cambiar, agregar o quitar ejercicios)
+      let routineRecommendations = [];
+      const hasPain = pains.toLowerCase() !== "ninguna" && pains.trim() !== "";
 
-      // Renderizado
+      if (hasPain) {
+        routineRecommendations.push(`• <strong>Ajuste por Molestia (${pains}):</strong> Reduce temporalmente un 15-20% el peso en ejercicios multiarticulares pesados o reemplaza saltos/impactos por trabajo de estabilidad.`);
+      }
+
+      if (currentWeek >= 3 && progressionNotes.some(n => n.includes("Mantuviste"))) {
+        routineRecommendations.push(`• <strong>Sugerencia de Variante:</strong> Llevas semanas manteniendo las mismas cargas en algunos ejercicios. Si te sientes estancado, considera cambiar un ejercicio secundario por una variante (ej. Sentadilla Búlgara) o modificar el rango de repeticiones.`);
+      }
+
+      if (progressionNotes.filter(n => n.includes("Subiste")).length >= 2) {
+        routineRecommendations.push(`• <strong>Excelente Progresión:</strong> Tu fuerza va en aumento. Mantén la rutina actual sin hacer cambios bruscos; la sobrecarga progresiva está funcionando.`);
+      }
+
+      if (routineRecommendations.length === 0) {
+        routineRecommendations.push(`• Tu estructura de entrenamiento es sólida. Continúa con la rutina establecida enfocándote en la técnica antes de incrementar más cargas.`);
+      }
+
+      // Renderizado final en la Sección de Progreso
       const output = document.getElementById('aiRecommendationsOutput');
       output.innerHTML = `
-        <strong>🤖 Informe Semanal Consolidado (Semana ${currentWeek}):</strong><br><br>
+        <strong>🤖 Informe Semanal Integrado (Semana ${currentWeek}):</strong><br><br>
         
         <strong>1. Ficha Corporal & Recuperación:</strong><br>
         • Peso actual: ${window.state.currentWeight} kg (Dif. inicio: ${(window.state.currentWeight - window.state.initialWeight).toFixed(1)} kg)<br>
         • Salto vertical: ${jump} cm<br>
-        • Promedio de descanso: ${sleep} hs/día<br>
-        • Estado físico / Molestias: ${pains.toLowerCase() !== "ninguna" && pains.trim() !== "" ? `⚠️ <em>${pains}</em>` : 'Sin dolores registrados'}<br>
-        • Registro fotográfico corporal: ${photosCount} foto(s) subida(s) esta semana.<br><br>
+        • Descanso: ${sleep} hs/día<br>
+        • Molestias físicas: ${hasPain ? `⚠️ <em>${pains}</em>` : 'Sin dolores registrados'}<br><br>
 
-        <strong>2. Registro Diario de Hábitos:</strong><br>
-        • Estado de hábitos del día: ${habitsSummary}<br>
-        • Metas del menú sugerido cumplidas: ${checkedMenuCount} de 4<br><br>
-
-        <strong>3. Cargas y Rendimiento en Gimnasio (${totalExercisesDone} completados):</strong><br>
+        <strong>2. Registro de Cargas & Rendimiento Gym:</strong><br>
         ${exercisesSummary}<br>
 
-        <strong>4. Historial Nutricional (${weekMeals.length} registros):</strong><br>
+        ${progressionNotes.length > 0 ? `<strong>📊 Evolución de Pesos respecto a la semana pasada:</strong><br>${progressionNotes.join('<br>')}<br><br>` : ''}
+
+        <strong>3. Nutrición e Historial (${weekMeals.length} registros):</strong><br>
         ${mealsSummary}<br>
 
-        <strong>💡 Evaluación & Recomendaciones de la IA:</strong><br>
-        ${
-          pains.toLowerCase() !== "ninguna" && pains.trim() !== ""
-            ? `Se reporta la molestia "<em>${pains}</em>". Recomendamos modular la carga en saltos de básquetbol y mantener los pesos de gimnasio sin incrementos agresivos hasta la recuperación.`
-            : 'Gran consistencia general. El volumen de comidas registradas y el trabajo realizado en gimnasio muestran una base óptima para seguir desarrollando fuerza explosiva y salto.'
-        }
+        <strong>🎯 Recomendaciones de la IA para tu Rutina y Entrenamientos:</strong><br>
+        ${routineRecommendations.join('<br>')}
       `;
     };
 
