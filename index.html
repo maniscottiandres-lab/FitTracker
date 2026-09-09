@@ -315,10 +315,17 @@
     let currentUser = null;
     let selectedImageBase64 = null;
 
+    function getTodayString() {
+      return new Date().toISOString().split('T')[0];
+    }
+
     const defaultState = {
       currentWeek: 1, currentGymDay: 1, initialWeight: 67.5, currentWeight: 67.5, menuVariant: 0,
       targets: { cals: 2800, prot: 160, carbs: 320 },
+      habitsDate: getTodayString(),
       dailyHabits: { gym: false, basketball: false, sleep: false },
+      menuDate: getTodayString(),
+      checkedMenu: [false, false, false, false],
       loggedMeals: [],
       exercises: {
         1: [{ id: 1, name: "Sentadilla Trasera", series: 4, weight: 80, done: false, userReps: 10, userWeight: 80, tip: "Ideal para potencia de salto." }],
@@ -328,11 +335,6 @@
     };
 
     window.state = defaultState;
-
-    // Obtener fecha de hoy ISO (YYYY-MM-DD)
-    function getTodayString() {
-      return new Date().toISOString().split('T')[0];
-    }
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -384,11 +386,23 @@
       const docRef = doc(db, "users", currentUser.uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        window.state = docSnap.data();
-        if (!window.state.loggedMeals) window.state.loggedMeals = [];
+        window.state = { ...defaultState, ...docSnap.data() };
       } else {
         await saveUserData();
       }
+      
+      // Reinicio por fecha (midnight reset) para Menú Sugerido y Hábitos
+      const today = getTodayString();
+      if (window.state.menuDate !== today) {
+        window.state.menuDate = today;
+        window.state.checkedMenu = [false, false, false, false];
+      }
+      if (window.state.habitsDate !== today) {
+        window.state.habitsDate = today;
+        window.state.dailyHabits = { gym: false, basketball: false, sleep: false };
+      }
+
+      await saveUserData();
       updateUI();
     }
 
@@ -403,9 +417,9 @@
       const elDate = document.getElementById('currentMealDate');
       if (elDate) elDate.innerText = todayDisplay;
 
-      document.getElementById('chkGym').checked = window.state.dailyHabits.gym;
-      document.getElementById('chkBasketball').checked = window.state.dailyHabits.basketball;
-      document.getElementById('chkSleep').checked = window.state.dailyHabits.sleep;
+      document.getElementById('chkGym').checked = !!window.state.dailyHabits.gym;
+      document.getElementById('chkBasketball').checked = !!window.state.dailyHabits.basketball;
+      document.getElementById('chkSleep').checked = !!window.state.dailyHabits.sleep;
 
       updateWeightData();
       renderGymExercises();
@@ -551,7 +565,7 @@
       window.saveUserData();
     };
 
-    // COMIDAS Y CARGA DE FOTOS CON REINICIO DIARIO
+    // COMIDAS Y CARGA DE FOTOS
     window.handleImageSelected = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -609,7 +623,6 @@
       container.innerHTML = '';
       
       const todayISO = getTodayString();
-      // Filtrar ÚNICAMENTE las comidas del día de hoy
       const todayMeals = (window.state.loggedMeals || []).filter(m => m.dateISO === todayISO);
 
       if (todayMeals.length === 0) {
@@ -646,6 +659,12 @@
       window.saveUserData();
     };
 
+    window.toggleMenuItem = (index) => {
+      if (!window.state.checkedMenu) window.state.checkedMenu = [false, false, false, false];
+      window.state.checkedMenu[index] = !window.state.checkedMenu[index];
+      window.saveUserData();
+    };
+
     function renderSuggestedMeals() {
       const p = window.state.targets.prot;
       const cb = window.state.targets.carbs;
@@ -666,10 +685,12 @@
       ];
 
       const activeMenu = variants[window.state.menuVariant || 0] || variants[0];
+      const checkedArr = window.state.checkedMenu || [false, false, false, false];
       const container = document.getElementById('suggestedMealsList');
-      container.innerHTML = activeMenu.map(m => `
+
+      container.innerHTML = activeMenu.map((m, idx) => `
         <label class="flex items-start gap-3 p-3 bg-slate-800/40 rounded-xl border border-slate-800/80 cursor-pointer">
-          <input type="checkbox" class="mt-1 w-4 h-4 accent-emerald-500 rounded">
+          <input type="checkbox" ${checkedArr[idx] ? 'checked' : ''} onchange="toggleMenuItem(${idx})" class="mt-1 w-4 h-4 accent-emerald-500 rounded">
           <div>
             <span class="font-semibold text-emerald-400 block">${m.name}</span>
             <span class="text-xs text-slate-300">${m.desc}</span>
@@ -694,7 +715,6 @@
       });
       if (!exercisesSummary) exercisesSummary = "• Aún no registraste ejercicios completados este ciclo.<br>";
 
-      // El informe IA procesa el acumulado completo de la semana
       const weekMeals = (window.state.loggedMeals || []).filter(m => m.week === window.state.currentWeek);
       let mealsSummary = "";
       if (weekMeals.length > 0) {
