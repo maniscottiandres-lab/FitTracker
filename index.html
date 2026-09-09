@@ -249,7 +249,7 @@
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    const firebaseConfig = {
+  const firebaseConfig = {
     apiKey: "AIzaSyCasUsngSnoos0WzLa0ImQ7Wr8sffGhBI",
     authDomain: "fittracker-e5d1f.firebaseapp.com",
     projectId: "fittracker-e5d1f",
@@ -258,7 +258,6 @@
     appId: "1:276809575551:web:04b2e18cddd90ceb3d234a",
     measurementId: "G-TSK93H8C9E"
   };
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
